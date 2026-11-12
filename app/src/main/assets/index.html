@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Kopfschmerztagebuch</title>
+<style>
+:root{
+  --primary:#2F3E86; --primary-d:#222f6b; --bg:#f3f4f9; --card:#fff; --text:#1c1e26; --muted:#6b7080; --line:#e1e3ec;
+  --danger:#b3261e;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:Roboto,-apple-system,"Segoe UI",Arial,sans-serif;font-size:16px}
+body{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.appbar{background:var(--primary);color:#fff;padding:14px 18px;flex:none}
+.appbar h1{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px}
+.appbar small{opacity:.8;font-size:13px}
+main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 110px}
+.view[hidden]{display:none}
+button{font:inherit;cursor:pointer}
+.tabs{flex:none;display:flex;background:#fff;border-top:1px solid var(--line)}
+.tabs button{flex:1;border:0;background:none;padding:12px 4px 11px;color:var(--muted);font-size:13px;font-weight:500;
+  display:flex;flex-direction:column;align-items:center;gap:3px}
+.tabs button svg{width:24px;height:24px;fill:currentColor}
+.tabs button.active{color:var(--primary)}
+.fab{position:fixed;right:16px;bottom:78px;background:var(--primary);color:#fff;border:0;border-radius:28px;
+  padding:0 22px 0 16px;height:56px;font-size:16px;font-weight:600;display:flex;align-items:center;gap:8px;
+  box-shadow:0 4px 14px rgba(20,30,80,.35)}
+.fab svg{width:24px;height:24px;fill:#fff}
+.fab:active{background:var(--primary-d)}
+.fab[hidden]{display:none}
+
+.card{background:var(--card);border-radius:14px;box-shadow:0 1px 3px rgba(20,30,80,.08);padding:14px;margin-bottom:12px}
+.stats{display:flex;gap:10px;margin-bottom:12px}
+.stat{flex:1;background:#fff;border-radius:14px;padding:10px 12px;box-shadow:0 1px 3px rgba(20,30,80,.08)}
+.stat b{display:block;font-size:22px;color:var(--primary)}
+.stat span{font-size:12px;color:var(--muted)}
+
+.day{margin:18px 4px 8px;display:flex;justify-content:space-between;align-items:baseline}
+.day h2{margin:0;font-size:15px;font-weight:600}
+.day span{font-size:12.5px;color:var(--muted)}
+.entry{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:12px;margin-bottom:8px;
+  box-shadow:0 1px 3px rgba(20,30,80,.08)}
+.entry:active{background:#f7f8fc}
+.badge{flex:none;width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:22px;font-weight:700}
+.e-main{flex:1;min-width:0}
+.e-time{font-weight:600;font-size:16px}
+.e-time .dur{font-weight:400;color:var(--muted);font-size:13.5px;margin-left:6px}
+.e-note{color:var(--muted);font-size:13.5px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.e-open{color:#a15c00;font-size:13px;margin-top:2px}
+.end-btn{flex:none;border:1.5px solid var(--primary);color:var(--primary);background:#fff;border-radius:18px;
+  padding:7px 12px;font-size:13.5px;font-weight:600}
+.empty{text-align:center;color:var(--muted);padding:50px 20px;line-height:1.5}
+.empty svg{width:64px;height:64px;fill:#c3c8dc}
+
+/* Formular */
+.sheet{position:fixed;inset:0;background:var(--bg);z-index:20;display:flex;flex-direction:column}
+.sheet[hidden]{display:none}
+.sheet .appbar{display:flex;align-items:center;gap:10px}
+.sheet .appbar button{background:none;border:0;color:#fff;padding:4px 8px 4px 0;font-size:26px;line-height:1}
+.sheet-body{flex:1;overflow-y:auto;padding:14px 14px 30px}
+label.f{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 2px 6px}
+.field{width:100%;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:12px;font:inherit;color:var(--text)}
+.field:focus{outline:none;border-color:var(--primary)}
+.row{display:flex;gap:10px}
+.row > div{flex:1;min-width:0}
+input.field{min-width:0;-webkit-appearance:none;appearance:none}
+.inline{display:flex;gap:8px;align-items:center}
+.inline .field{flex:1;min-width:0}
+.mini{flex:none;border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:11px 12px;font-size:13.5px;color:var(--primary);font-weight:600}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.scale button{border:2px solid transparent;border-radius:12px;height:50px;font-size:20px;font-weight:700;opacity:.9}
+.scale button.sel{opacity:1;border-color:#111;transform:scale(1.04);box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.scale-hint{margin:8px 2px 0;font-size:13.5px;color:var(--muted);min-height:20px}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 2px 0}
+.actions{display:flex;gap:10px;margin-top:22px}
+.btn{flex:1;border:0;border-radius:14px;padding:15px;font-size:16px;font-weight:600;background:var(--primary);color:#fff}
+.btn:active{background:var(--primary-d)}
+.btn.sec{background:#fff;color:var(--primary);border:1.5px solid var(--primary)}
+.btn.danger{background:#fff;color:var(--danger);border:1.5px solid var(--danger);flex:none;padding:15px 18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{border:1.5px solid var(--line);background:#fff;border-radius:18px;padding:7px 13px;font-size:14px;color:var(--text)}
+.chip.on{background:var(--primary);border-color:var(--primary);color:#fff}
+
+h3.sec{margin:0 0 4px;font-size:16px}
+.paperwrap{background:#dfe2ee;border-radius:10px;padding:8px;margin-top:14px;overflow:hidden}
+.paper{background:#fff;width:794px;padding:40px 44px;box-shadow:0 1px 4px rgba(0,0,0,.25);transform-origin:0 0}
+details summary{cursor:pointer;font-weight:600;padding:4px 0}
+textarea.field{min-height:90px;resize:vertical}
+
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;
+  border-radius:22px;font-size:14px;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s;max-width:88%;text-align:center}
+#toast.show{opacity:.95}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;display:flex;align-items:center;justify-content:center;padding:24px}
+.modal[hidden]{display:none}
+.modal .box{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:360px}
+.modal h4{margin:0 0 8px;font-size:18px}
+.modal p{margin:0 0 18px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="appbar"><h1>Kopfschmerztagebuch</h1></div>
+
+<main id="main">
+  <!-- TAGEBUCH -->
+  <section id="view-diary" class="view">
+    <div class="stats" id="stats"></div>
+    <div id="list"></div>
+  </section>
+
+  <!-- AUSWERTUNG / PDF -->
+  <section id="view-export" class="view" hidden>
+    <div class="card">
+      <h3 class="sec">Bericht für den Neurologen</h3>
+      <div class="hint" style="margin-top:0">Zeitraum wählen, Vorschau prüfen und dann als PDF speichern oder direkt drucken.</div>
+
+      <label class="f">Zeitraum</label>
+      <div class="chips" id="presets">
+        <button class="chip" data-d="7">7 Tage</button>
+        <button class="chip" data-d="14">14 Tage</button>
+        <button class="chip" data-d="30">30 Tage</button>
+        <button class="chip" data-d="90">90 Tage</button>
+        <button class="chip" data-d="0">Alles</button>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label class="f" style="margin-top:0">Von</label><input class="field" type="date" id="r-from"></div>
+        <div><label class="f" style="margin-top:0">Bis</label><input class="field" type="date" id="r-to"></div>
+      </div>
+
+      <label class="f">Name (optional, erscheint im Bericht)</label>
+      <input class="field" type="text" id="p-name" placeholder="Vor- und Nachname" autocomplete="off">
+      <label class="f">Geburtsdatum (optional)</label>
+      <input class="field" type="date" id="p-dob">
+
+      <div class="actions">
+        <button class="btn" id="btn-print">PDF speichern / Drucken</button>
+      </div>
+      <div class="hint">Im Druckdialog oben „Als PDF speichern“ wählen oder einen Drucker auswählen.</div>
+    </div>
+
+    <div class="paperwrap" id="paperwrap"><div class="paper report" id="paper"></div></div>
+
+    <div class="card" style="margin-top:16px">
+      <details>
+        <summary>Datensicherung</summary>
+        <div class="hint">Deine Einträge liegen nur auf diesem Handy. Sichere sie z. B. per E-Mail an dich selbst.</div>
+        <div class="actions" style="margin-top:12px"><button class="btn sec" id="btn-backup">Sicherung senden</button></div>
+        <label class="f">Sicherung wiederherstellen (Text einfügen)</label>
+        <textarea class="field" id="restore-text" placeholder="Gesicherten Text hier einfügen"></textarea>
+        <div class="actions"><button class="btn sec" id="btn-restore">Wiederherstellen</button></div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<button class="fab" id="fab"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>Neuer Eintrag</button>
+
+<nav class="tabs">
+  <button id="tab-diary" class="active"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>Tagebuch</button>
+  <button id="tab-export"><svg viewBox="0 0 24 24"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3.5h-1.5v1.5h1.5V11h-1.5v2H18V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>Auswertung &amp; PDF</button>
+</nav>
+
+<!-- EINTRAG-FORMULAR -->
+<div class="sheet" id="sheet" hidden>
+  <div class="appbar"><button id="sheet-close" aria-label="Schließen">&#x2190;</button><h1 id="sheet-title">Neuer Eintrag</h1></div>
+  <div class="sheet-body">
+    <label class="f" style="margin-top:4px">Datum</label>
+    <input class="field" type="date" id="f-date">
+
+    <div class="row">
+      <div>
+        <label class="f">Beginn (Uhrzeit)</label>
+        <div class="inline"><input class="field" type="time" id="f-start"><button class="mini" data-now="f-start">Jetzt</button></div>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label class="f">Ende (Uhrzeit, optional)</label>
+        <div class="inline"><input class="field" type="time" id="f-end"><button class="mini" data-now="f-end">Jetzt</button><button class="mini" id="f-end-clear" style="color:var(--muted)">Leeren</button></div>
+        <div class="hint">Leer lassen, wenn der Kopfschmerz noch anhält oder du die Zeit nicht weißt. Liegt das Ende vor dem Beginn, gilt es als nächster Tag.</div>
+      </div>
+    </div>
+
+    <label class="f">Stärke (1 = sehr leicht, 10 = unerträglich)</label>
+    <div class="scale" id="scale"></div>
+    <div class="scale-hint" id="scale-hint"></div>
+
+    <label class="f">Medikament / Dosis (optional)</label>
+    <input class="field" type="text" id="f-med" placeholder="z. B. Ibuprofen 400 mg um 08:45" autocomplete="off">
+
+    <label class="f">Notiz (optional)</label>
+    <input class="field" type="text" id="f-note" placeholder="z. B. Aura, Übelkeit, Auslöser, Ort im Kopf" autocomplete="off">
+
+    <div class="actions">
+      <button class="btn danger" id="f-delete" hidden>Löschen</button>
+      <button class="btn" id="f-save">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="box">
+    <h4 id="m-title"></h4><p id="m-text"></p>
+    <div class="actions" style="margin-top:0">
+      <button class="btn sec" id="m-cancel">Abbrechen</button>
+      <button class="btn danger" id="m-ok" style="flex:1">OK</button>
+    </div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+var NATIVE = (typeof Android !== 'undefined');
+var $ = function(s){return document.querySelector(s);};
+var state = {entries:[], settings:{}};
+var editingId = null, selectedIntensity = 0, currentTab = 'diary';
+
+/* ---------- Hilfsfunktionen ---------- */
+var WD = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+var WDS = ['So','Mo','Di','Mi','Do','Fr','Sa'];
+var MON = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+function pad(n){return (n<10?'0':'')+n;}
+function fmtDate(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function parseDate(s){var p=s.split('-').map(Number);return new Date(p[0],p[1]-1,p[2]);}
+function todayStr(){return fmtDate(new Date());}
+function addDays(s,n){var d=parseDate(s);d.setDate(d.getDate()+n);return fmtDate(d);}
+function nowTime(){var d=new Date();return pad(d.getHours())+':'+pad(d.getMinutes());}
+function deDate(s){var p=s.split('-');return p[2]+'.'+p[1]+'.'+p[0];}
+function longDate(s){var d=parseDate(s);return WD[d.getDay()]+', '+d.getDate()+'. '+MON[d.getMonth()]+' '+d.getFullYear();}
+function mins(t){var p=t.split(':').map(Number);return p[0]*60+p[1];}
+function duration(e){if(!e.end)return null;var d=mins(e.end)-mins(e.start);if(d<0)d+=1440;return d;}
+function fmtDur(m){var h=Math.floor(m/60),r=m%60;if(!h)return r+' min';return r?h+' h '+r+' min':h+' h';}
+function num1(x){return (Math.round(x*10)/10).toFixed(1).replace('.',',');}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function dayDiff(a,b){return Math.round((parseDate(b)-parseDate(a))/86400000);}
+
+var COLORS = ['#8BC34A','#A5C93A','#C6CC30','#FBC02D','#FFA000','#FB8C00','#F4511E','#E53935','#C62828','#8E0000'];
+function color(i){return COLORS[i-1]||'#999';}
+function fg(i){return i<=4?'#1c1e26':'#fff';}
+function label(i){return i<=3?'leicht':i<=6?'mittel':i<=8?'stark':'sehr stark';}
+
+function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('show');},2200);}
+
+function confirmBox(title,text,okLabel,cb){
+  $('#m-title').textContent=title;$('#m-text').textContent=text;$('#m-ok').textContent=okLabel;$('#modal').hidden=false;
+  $('#m-ok').onclick=function(){$('#modal').hidden=true;cb();};
+  $('#m-cancel').onclick=function(){$('#modal').hidden=true;};
+}
+
+/* ---------- Speicher ---------- */
+function load(){
+  var raw='';
+  try{raw=NATIVE?Android.loadData():localStorage.getItem('kt_data');}catch(e){}
+  try{var o=JSON.parse(raw||'{}');state.entries=Array.isArray(o.entries)?o.entries:[];state.settings=o.settings||{};}catch(e){}
+}
+function persist(){
+  var s=JSON.stringify({v:1,entries:state.entries,settings:state.settings});
+  try{
+    var ok=NATIVE?Android.saveData(s):(localStorage.setItem('kt_data',s),true);
+    if(!ok)toast('Speichern fehlgeschlagen!');
+  }catch(e){toast('Speichern fehlgeschlagen!');}
+}
+
+/* ---------- Tagebuch-Liste ---------- */
+function sortedEntries(){
+  return state.entries.slice().sort(function(a,b){return a.date===b.date?(a.start<b.start?-1:a.start>b.start?1:0):(a.date<b.date?1:-1);});
+}
+function renderDiary(){
+  var all=state.entries, today=todayStr(), from7=addDays(today,-6);
+  var last7=all.filter(function(e){return e.date>=from7&&e.date<=today;});
+  var days7={};last7.forEach(function(e){days7[e.date]=1;});
+  var avg=last7.length?last7.reduce(function(s,e){return s+e.intensity;},0)/last7.length:null;
+  $('#stats').innerHTML=
+    '<div class="stat"><b>'+Object.keys(days7).length+'</b><span>Kopfschmerztage<br>letzte 7 Tage</span></div>'+
+    '<div class="stat"><b>'+last7.length+'</b><span>Episoden<br>letzte 7 Tage</span></div>'+
+    '<div class="stat"><b>'+(avg==null?'–':num1(avg))+'</b><span>Ø Stärke<br>letzte 7 Tage</span></div>';
+
+  var list=$('#list');
+  if(!all.length){
+    list.innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><p>Noch keine Einträge.<br>Tippe auf <b>Neuer Eintrag</b>, sobald du Kopfschmerzen hast – oder trage sie später nach.</p></div>';
+    return;
+  }
+  var html='',cur=null,yest=addDays(today,-1);
+  var byDate={};all.forEach(function(e){(byDate[e.date]=byDate[e.date]||[]).push(e);});
+  sortedEntries().forEach(function(e){
+    if(e.date!==cur){
+      cur=e.date;
+      var name=cur===today?'Heute':cur===yest?'Gestern':longDate(cur);
+      var mx=Math.max.apply(null,byDate[cur].map(function(x){return x.intensity;}));
+      html+='<div class="day"><h2>'+name+(cur===today||cur===yest?' <span>· '+longDate(cur)+'</span>':'')+'</h2><span>'+byDate[cur].length+'× · max. '+mx+'</span></div>';
+    }
+    var d=duration(e), next=e.end&&mins(e.end)<mins(e.start);
+    var time=e.start+(e.end?' – '+e.end:'')+' Uhr'+(next?' (+1 Tag)':'');
+    var notes=[e.med,e.note].filter(Boolean).map(esc).join(' · ');
+    html+='<div class="entry" data-id="'+e.id+'"><div class="badge" style="background:'+color(e.intensity)+';color:'+fg(e.intensity)+'">'+e.intensity+'</div>'+
+      '<div class="e-main"><div class="e-time">'+time+(d!=null?'<span class="dur">'+fmtDur(d)+'</span>':'')+'</div>'+
+      (e.end?'':'<div class="e-open">Ende offen</div>')+
+      (notes?'<div class="e-note">'+notes+'</div>':'')+'</div>'+
+      (e.end?'':'<button class="end-btn" data-end="'+e.id+'">Beendet</button>')+'</div>';
+  });
+  list.innerHTML=html;
+}
+
+$('#list').addEventListener('click',function(ev){
+  var endBtn=ev.target.closest('[data-end]');
+  if(endBtn){
+    var e=find(endBtn.getAttribute('data-end'));
+    if(e){e.end=nowTime();persist();renderDiary();toast('Ende um '+e.end+' Uhr eingetragen');}
+    return;
+  }
+  var card=ev.target.closest('.entry');
+  if(card)openSheet(card.getAttribute('data-id'));
+});
+function find(id){for(var i=0;i<state.entries.length;i++)if(state.entries[i].id===id)return state.entries[i];return null;}
+
+/* ---------- Formular ---------- */
+(function buildScale(){
+  var h='';for(var i=1;i<=10;i++)h+='<button type="button" data-i="'+i+'" style="background:'+color(i)+';color:'+fg(i)+'">'+i+'</button>';
+  $('#scale').innerHTML=h;
+})();
+function setIntensity(i){
+  selectedIntensity=i;
+  Array.prototype.forEach.call($('#scale').children,function(b){b.classList.toggle('sel',+b.getAttribute('data-i')===i);});
+  $('#scale-hint').textContent=i?i+' von 10 – '+label(i):'Bitte Stärke auswählen';
+}
+$('#scale').addEventListener('click',function(ev){var b=ev.target.closest('button');if(b)setIntensity(+b.getAttribute('data-i'));});
+Array.prototype.forEach.call(document.querySelectorAll('[data-now]'),function(b){
+  b.addEventListener('click',function(){$('#'+b.getAttribute('data-now')).value=nowTime();});
+});
+$('#f-end-clear').addEventListener('click',function(){$('#f-end').value='';});
+
+function openSheet(id){
+  editingId=id||null;
+  var e=id?find(id):null;
+  $('#sheet-title').textContent=e?'Eintrag bearbeiten':'Neuer Eintrag';
+  $('#f-date').value=e?e.date:todayStr();
+  $('#f-start').value=e?e.start:nowTime();
+  $('#f-end').value=e&&e.end?e.end:'';
+  $('#f-med').value=e&&e.med?e.med:'';
+  $('#f-note').value=e&&e.note?e.note:'';
+  $('#f-delete').hidden=!e;
+  setIntensity(e?e.intensity:0);
+  $('#sheet').hidden=false;
+  $('#sheet .sheet-body').scrollTop=0;
+}
+function closeSheet(){$('#sheet').hidden=true;editingId=null;}
+$('#fab').addEventListener('click',function(){openSheet(null);});
+$('#sheet-close').addEventListener('click',closeSheet);
+
+$('#f-save').addEventListener('click',function(){
+  var date=$('#f-date').value,start=$('#f-start').value,end=$('#f-end').value;
+  if(!date){toast('Bitte ein Datum angeben');return;}
+  if(!start){toast('Bitte die Uhrzeit des Beginns angeben');return;}
+  if(!selectedIntensity){toast('Bitte die Stärke (1–10) auswählen');return;}
+  if(date>todayStr()){toast('Das Datum liegt in der Zukunft');return;}
+  var data={date:date,start:start,end:end||'',intensity:selectedIntensity,med:$('#f-med').value.trim(),note:$('#f-note').value.trim()};
+  if(editingId){var e=find(editingId);if(e)for(var k in data)e[k]=data[k];}
+  else{data.id=uid();state.entries.push(data);}
+  persist();closeSheet();renderDiary();toast('Gespeichert');
+});
+$('#f-delete').addEventListener('click',function(){
+  var id=editingId;
+  confirmBox('Eintrag löschen?','Dieser Eintrag wird endgültig entfernt.','Löschen',function(){
+    state.entries=state.entries.filter(function(e){return e.id!==id;});
+    persist();closeSheet();renderDiary();toast('Eintrag gelöscht');
+  });
+});
+
+/* ---------- Bericht ---------- */
+var REPORT_CSS =
+'.report{font-family:Roboto,Arial,Helvetica,sans-serif;color:#111;font-size:10pt;line-height:1.35;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+'.report h1{font-size:19pt;margin:0 0 4px;color:#222f6b}'+
+'.report .meta{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #222f6b;padding-bottom:8px;margin-bottom:12px;font-size:10pt}'+
+'.report .meta div{line-height:1.5}'+
+'.report .kpis{display:flex;gap:8px;margin-bottom:14px}'+
+'.report .kpi{flex:1;border:1px solid #c9cde0;border-radius:6px;padding:6px 8px;background:#f5f6fb}'+
+'.report .kpi b{display:block;font-size:14pt;color:#222f6b}'+
+'.report .kpi span{font-size:8pt;color:#555}'+
+'.report h2{font-size:11.5pt;margin:14px 0 6px;color:#222f6b}'+
+'.report table{width:100%;border-collapse:collapse}'+
+'.report thead{display:table-header-group}'+
+'.report th{background:#e8ebf6;text-align:left;font-size:9pt;padding:5px 6px;border-bottom:1.5px solid #222f6b}'+
+'.report td{padding:4px 6px;border-bottom:1px solid #dcdfec;vertical-align:top}'+
+'.report tbody.day{page-break-inside:avoid;break-inside:avoid}'+
+'.report td.d{white-space:nowrap;font-weight:600;width:84px;border-right:1px solid #dcdfec}'+
+'.report td.none{color:#8a8fa3;font-style:italic;font-size:9pt}'+
+'.report tr.free td{padding:2px 6px;border-bottom:1px solid #eef0f6}'+
+'.report .pill{display:inline-block;min-width:24px;text-align:center;border-radius:10px;padding:0 6px;font-weight:700}'+
+'.report .c{white-space:nowrap}'+
+'.report .foot{margin-top:14px;font-size:8pt;color:#666;border-top:1px solid #ccc;padding-top:6px;line-height:1.5}'+
+'.report svg{width:100%;height:auto;display:block}';
+
+function getRange(){
+  var from=$('#r-from').value,to=$('#r-to').value;
+  if(!from||!to||from>to)return null;
+  return {from:from,to:to};
+}
+
+function chartSVG(days,maxByDay){
+  var W=700,H=150,L=26,B=22,T=8,n=days.length,pw=W-L-4,ph=H-B-T,bw=pw/n,g='';
+  for(var v=0;v<=10;v+=5){var y=T+ph-ph*v/10;g+='<line x1="'+L+'" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="#d5d8e6" stroke-width="1"/><text x="'+(L-4)+'" y="'+(y+3.5)+'" font-size="9" text-anchor="end" fill="#555">'+v+'</text>';}
+  var step=Math.max(1,Math.ceil(n/14));
+  days.forEach(function(d,i){
+    var m=maxByDay[d],x=L+i*bw;
+    if(m){var h=ph*m/10;g+='<rect x="'+(x+bw*0.15)+'" y="'+(T+ph-h)+'" width="'+(bw*0.7)+'" height="'+h+'" fill="'+color(m)+'" rx="1.5"/>';}
+    if(i%step===0){var p=d.split('-');g+='<text x="'+(x+bw/2)+'" y="'+(H-7)+'" font-size="8.5" text-anchor="middle" fill="#555">'+p[2]+'.'+p[1]+'.</text>';}
+  });
+  return '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">'+g+'</svg>';
+}
+
+function buildReport(range){
+  var inR=state.entries.filter(function(e){return e.date>=range.from&&e.date<=range.to;});
+  var days=[],by={},d=range.from;
+  while(d<=range.to&&days.length<1500){days.push(d);d=addDays(d,1);}
+  inR.forEach(function(e){(by[e.date]=by[e.date]||[]).push(e);});
+  Object.keys(by).forEach(function(k){by[k].sort(function(a,b){return a.start<b.start?-1:a.start>b.start?1:0;});});
+
+  var nDays=Object.keys(by).length, nEp=inR.length;
+  var avg=nEp?inR.reduce(function(s,e){return s+e.intensity;},0)/nEp:null;
+  var mx=nEp?Math.max.apply(null,inR.map(function(e){return e.intensity;})):null;
+  var known=inR.filter(function(e){return e.end;}), totalMin=known.reduce(function(s,e){return s+duration(e);},0);
+  var avgDur=known.length?totalMin/known.length:null;
+  var nMed=inR.filter(function(e){return e.med;}).length;
+  var maxByDay={};Object.keys(by).forEach(function(k){maxByDay[k]=Math.max.apply(null,by[k].map(function(e){return e.intensity;}));});
+
+  var name=(state.settings.name||'').trim(),dob=state.settings.dob;
+  var h='<style>'+REPORT_CSS+'</style>';
+  h+='<h1>Kopfschmerztagebuch</h1><div class="meta"><div>'+
+     (name?'<b>Name:</b> '+esc(name)+'<br>':'')+(dob?'<b>Geboren:</b> '+deDate(dob)+'<br>':'')+
+     '<b>Zeitraum:</b> '+deDate(range.from)+' – '+deDate(range.to)+' ('+days.length+' Tage)</div>'+
+     '<div style="text-align:right"><b>Erstellt am:</b> '+deDate(todayStr())+'</div></div>';
+  h+='<div class="kpis">'+
+     '<div class="kpi"><b>'+nDays+' von '+days.length+'</b><span>Tage mit Kopfschmerz</span></div>'+
+     '<div class="kpi"><b>'+nEp+'</b><span>Kopfschmerz-Episoden</span></div>'+
+     '<div class="kpi"><b>'+(avg==null?'–':num1(avg)+' / 10')+'</b><span>Ø Stärke</span></div>'+
+     '<div class="kpi"><b>'+(mx==null?'–':mx+' / 10')+'</b><span>Maximale Stärke</span></div>'+
+     '<div class="kpi"><b>'+(avgDur==null?'–':fmtDur(Math.round(avgDur)))+'</b><span>Ø Dauer pro Episode</span></div>'+
+     '<div class="kpi"><b>'+nMed+'</b><span>Episoden mit Medikament</span></div></div>';
+  if(days.length>1&&days.length<=190){
+    h+='<h2>Verlauf – stärkster Kopfschmerz pro Tag</h2>'+chartSVG(days,maxByDay);
+  }
+  h+='<h2>Einzelne Einträge</h2><table><thead><tr><th>Datum</th><th>Beginn</th><th>Ende</th><th>Dauer</th><th>Stärke</th><th>Medikament / Notiz</th></tr></thead>';
+  days.forEach(function(day){
+    var p=parseDate(day),dl=WDS[p.getDay()]+' '+deDate(day).slice(0,6)+String(p.getFullYear()).slice(2);
+    var es=by[day];
+    if(!es){h+='<tbody class="day"><tr class="free"><td class="d">'+dl+'</td><td colspan="5" class="none">kein Kopfschmerz dokumentiert</td></tr></tbody>';return;}
+    h+='<tbody class="day">';
+    es.forEach(function(e,i){
+      var du=duration(e),next=e.end&&mins(e.end)<mins(e.start);
+      var notes=[e.med?'<b>'+esc(e.med)+'</b>':'',e.note?esc(e.note):''].filter(Boolean).join(' · ');
+      h+='<tr>'+(i===0?'<td class="d" rowspan="'+es.length+'">'+dl+'</td>':'')+
+        '<td class="c">'+e.start+'</td><td class="c">'+(e.end?e.end+(next?' (+1)':''):'offen')+'</td><td class="c">'+(du!=null?fmtDur(du):'–')+'</td>'+
+        '<td class="c"><span class="pill" style="background:'+color(e.intensity)+';color:'+fg(e.intensity)+'">'+e.intensity+'</span> '+label(e.intensity)+'</td>'+
+        '<td>'+notes+'</td></tr>';
+    });
+    h+='</tbody>';
+  });
+  h+='</table><div class="foot">Stärke-Skala: 1 = sehr leicht … 10 = stärkster vorstellbarer Kopfschmerz (leicht 1–3, mittel 4–6, stark 7–8, sehr stark 9–10). '+
+     'Tage ohne Eintrag gelten als kopfschmerzfrei. „(+1)“ = Ende am Folgetag. Erstellt mit der App „Kopfschmerztagebuch“.</div>';
+  return h;
+}
+
+function renderReport(){
+  var r=getRange(),paper=$('#paper');
+  if(!r){paper.innerHTML='<p style="font:14px sans-serif;color:#a00">Bitte einen gültigen Zeitraum wählen.</p>';fit();return;}
+  paper.innerHTML=buildReport(r);fit();
+}
+function fit(){
+  var wrap=$('#paperwrap'),paper=$('#paper');
+  var s=Math.min(1,(wrap.clientWidth-16)/794);
+  paper.style.zoom=s;
+}
+window.addEventListener('resize',function(){if(currentTab==='export')fit();});
+
+function setRange(from,to){$('#r-from').value=from;$('#r-to').value=to;markPreset();renderReport();}
+function earliest(){return state.entries.length?state.entries.reduce(function(m,e){return e.date<m?e.date:m;},state.entries[0].date):addDays(todayStr(),-29);}
+function markPreset(){
+  var r=getRange(),t=todayStr();
+  Array.prototype.forEach.call($('#presets').children,function(b){
+    var dd=+b.getAttribute('data-d'),on=false;
+    if(r&&r.to===t){on=dd?(r.from===addDays(t,-(dd-1))):(r.from===earliest());}
+    b.classList.toggle('on',on);
+  });
+}
+$('#presets').addEventListener('click',function(ev){
+  var b=ev.target.closest('button');if(!b)return;
+  var dd=+b.getAttribute('data-d'),t=todayStr();
+  setRange(dd?addDays(t,-(dd-1)):earliest(),t);
+});
+$('#r-from').addEventListener('change',function(){markPreset();renderReport();});
+$('#r-to').addEventListener('change',function(){markPreset();renderReport();});
+$('#p-name').addEventListener('input',function(){state.settings.name=this.value;persist();renderReport();});
+$('#p-dob').addEventListener('change',function(){state.settings.dob=this.value;persist();renderReport();});
+
+$('#btn-print').addEventListener('click',function(){
+  var r=getRange();
+  if(!r){toast('Bitte einen gültigen Zeitraum wählen');return;}
+  var html='<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Kopfschmerztagebuch</title>'+
+    '<style>html,body{margin:0;padding:0;background:#fff}</style></head><body><div class="report">'+buildReport(r)+'</div></body></html>';
+  var job='Kopfschmerztagebuch_'+r.from+'_bis_'+r.to;
+  if(NATIVE){Android.printReport(html,job);}
+  else{var w=window.open('','_blank');if(w){w.document.write(html);w.document.close();w.focus();w.print();}else{toast('Drucken ist hier nicht verfügbar');}}
+});
+
+/* ---------- Sicherung ---------- */
+$('#btn-backup').addEventListener('click',function(){
+  var txt=JSON.stringify({v:1,entries:state.entries,settings:state.settings});
+  if(NATIVE)Android.shareText('Kopfschmerztagebuch Sicherung '+deDate(todayStr()),txt);
+  else toast('Nur in der App verfügbar');
+});
+$('#btn-restore').addEventListener('click',function(){
+  var raw=$('#restore-text').value.trim(),o;
+  try{o=JSON.parse(raw);}catch(e){toast('Der Text ist keine gültige Sicherung');return;}
+  if(!o||!Array.isArray(o.entries)){toast('Der Text ist keine gültige Sicherung');return;}
+  var added=0;
+  o.entries.forEach(function(e){
+    if(!e||!e.id||!/^\d{4}-\d\d-\d\d$/.test(e.date)||!/^\d\d:\d\d$/.test(e.start)||!(e.intensity>=1&&e.intensity<=10))return;
+    if(!find(e.id)){state.entries.push({id:String(e.id),date:e.date,start:e.start,end:/^\d\d:\d\d$/.test(e.end||'')?e.end:'',intensity:+e.intensity,med:String(e.med||''),note:String(e.note||'')});added++;}
+  });
+  persist();renderDiary();$('#restore-text').value='';toast(added+' Einträge wiederhergestellt');
+});
+
+/* ---------- Navigation ---------- */
+function showTab(t){
+  currentTab=t;
+  $('#view-diary').hidden=t!=='diary';$('#view-export').hidden=t!=='export';
+  $('#tab-diary').classList.toggle('active',t==='diary');$('#tab-export').classList.toggle('active',t==='export');
+  $('#fab').hidden=t!=='diary';
+  $('#main').scrollTop=0;
+  if(t==='export'){
+    $('#p-name').value=state.settings.name||'';$('#p-dob').value=state.settings.dob||'';
+    var r=getRange();
+    if(!r)setRange(addDays(todayStr(),-29)>earliest()?addDays(todayStr(),-29):earliest(),todayStr());
+    else renderReport();
+  }
+}
+$('#tab-diary').addEventListener('click',function(){showTab('diary');});
+$('#tab-export').addEventListener('click',function(){showTab('export');});
+
+window.handleBack=function(){
+  if(!$('#modal').hidden){$('#modal').hidden=true;return true;}
+  if(!$('#sheet').hidden){closeSheet();return true;}
+  if(currentTab!=='diary'){showTab('diary');return true;}
+  return false;
+};
+window.__kt={state:state,renderDiary:renderDiary,showTab:showTab};
+
+load();
+renderDiary();
+})();
+</script>
+</body>
+</html>
