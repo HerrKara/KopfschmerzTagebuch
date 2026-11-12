@@ -383,12 +383,13 @@ var REPORT_CSS =
 '.report .kpi b{display:block;font-size:14pt;color:#222f6b}'+
 '.report .kpi span{font-size:8pt;color:#555}'+
 '.report h2{font-size:11.5pt;margin:14px 0 6px;color:#222f6b}'+
-'.report table{width:100%;border-collapse:collapse}'+
+'.report table{width:100%;border-collapse:collapse;table-layout:fixed}'+
+'.report td{word-wrap:break-word}'+
 '.report thead{display:table-header-group}'+
 '.report th{background:#e8ebf6;text-align:left;font-size:9pt;padding:5px 6px;border-bottom:1.5px solid #222f6b}'+
 '.report td{padding:4px 6px;border-bottom:1px solid #dcdfec;vertical-align:top}'+
-'.report tbody.day{page-break-inside:avoid;break-inside:avoid}'+
-'.report td.d{white-space:nowrap;font-weight:600;width:84px;border-right:1px solid #dcdfec}'+
+'@media print{.report tbody.rday{page-break-inside:avoid;break-inside:avoid}}'+
+'.report td.d{white-space:nowrap;font-weight:600;border-right:1px solid #dcdfec}'+
 '.report td.none{color:#8a8fa3;font-style:italic;font-size:9pt}'+
 '.report tr.free td{padding:2px 6px;border-bottom:1px solid #eef0f6}'+
 '.report .pill{display:inline-block;min-width:24px;text-align:center;border-radius:10px;padding:0 6px;font-weight:700}'+
@@ -445,16 +446,16 @@ function buildReport(range){
   if(days.length>1&&days.length<=190){
     h+='<h2>Verlauf – stärkster Kopfschmerz pro Tag</h2>'+chartSVG(days,maxByDay);
   }
-  h+='<h2>Einzelne Einträge</h2><table><thead><tr><th>Datum</th><th>Beginn</th><th>Ende</th><th>Dauer</th><th>Stärke</th><th>Medikament / Notiz</th></tr></thead>';
+  h+='<h2>Einzelne Einträge</h2><table><colgroup><col style="width:88px"><col style="width:50px"><col style="width:62px"><col style="width:70px"><col style="width:100px"><col></colgroup><thead><tr><th>Datum</th><th>Beginn</th><th>Ende</th><th>Dauer</th><th>Stärke</th><th>Medikament / Notiz</th></tr></thead>';
   days.forEach(function(day){
     var p=parseDate(day),dl=WDS[p.getDay()]+' '+deDate(day).slice(0,6)+String(p.getFullYear()).slice(2);
     var es=by[day];
-    if(!es){h+='<tbody class="day"><tr class="free"><td class="d">'+dl+'</td><td colspan="5" class="none">kein Kopfschmerz dokumentiert</td></tr></tbody>';return;}
-    h+='<tbody class="day">';
+    if(!es){h+='<tbody class="rday"><tr class="free"><td class="d">'+dl+'</td><td colspan="5" class="none">kein Kopfschmerz dokumentiert</td></tr></tbody>';return;}
+    h+='<tbody class="rday">';
     es.forEach(function(e,i){
       var du=duration(e),next=e.end&&mins(e.end)<mins(e.start);
       var notes=[e.med?'<b>'+esc(e.med)+'</b>':'',e.note?esc(e.note):''].filter(Boolean).join(' · ');
-      h+='<tr>'+(i===0?'<td class="d" rowspan="'+es.length+'">'+dl+'</td>':'')+
+      h+='<tr>'+'<td class="d">'+(i===0?dl:'')+'</td>'+
         '<td class="c">'+e.start+'</td><td class="c">'+(e.end?e.end+(next?' (+1)':''):'offen')+'</td><td class="c">'+(du!=null?fmtDur(du):'–')+'</td>'+
         '<td class="c"><span class="pill" style="background:'+color(e.intensity)+';color:'+fg(e.intensity)+'">'+e.intensity+'</span> '+label(e.intensity)+'</td>'+
         '<td>'+notes+'</td></tr>';
@@ -474,7 +475,8 @@ function renderReport(){
 function fit(){
   var wrap=$('#paperwrap'),paper=$('#paper');
   var s=Math.min(1,(wrap.clientWidth-16)/794);
-  paper.style.zoom=s;
+  paper.style.transform='scale('+s+')';
+  wrap.style.height=(paper.offsetHeight*s+16)+'px';
 }
 window.addEventListener('resize',function(){if(currentTab==='export')fit();});
 
