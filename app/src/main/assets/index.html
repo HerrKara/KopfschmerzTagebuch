@@ -40,6 +40,7 @@ button{font:inherit;cursor:pointer}
 .day{margin:18px 4px 8px;display:flex;justify-content:space-between;align-items:baseline}
 .day h2{margin:0;font-size:15px;font-weight:600}
 .day span{font-size:12.5px;color:var(--muted)}
+.stepsline{margin:-4px 4px 8px;font-size:13.5px;color:var(--primary);font-weight:600}
 .entry{display:flex;align-items:center;gap:12px;background:#fff;border-radius:14px;padding:12px;margin-bottom:8px;
   box-shadow:0 1px 3px rgba(20,30,80,.08)}
 .entry:active{background:#f7f8fc}
@@ -108,6 +109,7 @@ textarea.field{min-height:90px;resize:vertical}
   <!-- TAGEBUCH -->
   <section id="view-diary" class="view">
     <div class="stats" id="stats"></div>
+    <button class="btn sec" id="steps-open" style="width:100%;margin-bottom:6px"></button>
     <div id="list"></div>
   </section>
 
@@ -194,6 +196,10 @@ textarea.field{min-height:90px;resize:vertical}
     <label class="f">Notiz (optional)</label>
     <input class="field" type="text" id="f-note" placeholder="z. B. Aura, Übelkeit, Auslöser, Ort im Kopf" autocomplete="off">
 
+    <label class="f">Schritte an diesem Tag (optional)</label>
+    <input class="field" type="number" inputmode="numeric" min="0" max="200000" step="1" id="f-steps" placeholder="z. B. 6500 (aus Samsung Health)">
+    <div class="hint">Gilt für den ganzen Tag, nicht nur für diesen Eintrag.</div>
+
     <div class="actions">
       <button class="btn danger" id="f-delete" hidden>Löschen</button>
       <button class="btn" id="f-save">Speichern</button>
@@ -210,6 +216,16 @@ textarea.field{min-height:90px;resize:vertical}
     </div>
   </div>
 </div>
+<div class="modal" id="steps-modal" hidden>
+  <div class="box">
+    <h4>Schritte eintragen</h4>
+    <label class="f" style="margin-top:6px">Datum</label>
+    <input class="field" type="date" id="s-date">
+    <label class="f">Schritte an diesem Tag</label>
+    <input class="field" type="number" inputmode="numeric" min="0" max="200000" step="1" id="s-val" placeholder="z. B. 6500">
+    <div class="actions"><button class="btn sec" id="s-cancel">Abbrechen</button><button class="btn" id="s-ok">Speichern</button></div>
+  </div>
+</div>
 <div id="toast"></div>
 
 <script>
@@ -217,7 +233,7 @@ textarea.field{min-height:90px;resize:vertical}
 'use strict';
 var NATIVE = (typeof Android !== 'undefined');
 var $ = function(s){return document.querySelector(s);};
-var state = {entries:[], settings:{}};
+var state = {entries:[], settings:{}, steps:{}};
 var editingId = null, selectedIntensity = 0, currentTab = 'diary';
 
 /* ---------- Hilfsfunktionen ---------- */
@@ -238,6 +254,7 @@ function fmtDur(m){var h=Math.floor(m/60),r=m%60;if(!h)return r+' min';return r?
 function num1(x){return (Math.round(x*10)/10).toFixed(1).replace('.',',');}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function fmtInt(n){return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.');}
 function dayDiff(a,b){return Math.round((parseDate(b)-parseDate(a))/86400000);}
 
 var COLORS = ['#8BC34A','#A5C93A','#C6CC30','#FBC02D','#FFA000','#FB8C00','#F4511E','#E53935','#C62828','#8E0000'];
@@ -257,10 +274,10 @@ function confirmBox(title,text,okLabel,cb){
 function load(){
   var raw='';
   try{raw=NATIVE?Android.loadData():localStorage.getItem('kt_data');}catch(e){}
-  try{var o=JSON.parse(raw||'{}');state.entries=Array.isArray(o.entries)?o.entries:[];state.settings=o.settings||{};}catch(e){}
+  try{var o=JSON.parse(raw||'{}');state.entries=Array.isArray(o.entries)?o.entries:[];state.settings=o.settings||{};state.steps=o.steps||{};}catch(e){}
 }
 function persist(){
-  var s=JSON.stringify({v:1,entries:state.entries,settings:state.settings});
+  var s=JSON.stringify({v:2,entries:state.entries,settings:state.settings,steps:state.steps});
   try{
     var ok=NATIVE?Android.saveData(s):(localStorage.setItem('kt_data',s),true);
     if(!ok)toast('Speichern fehlgeschlagen!');
@@ -271,6 +288,7 @@ function persist(){
 function sortedEntries(){
   return state.entries.slice().sort(function(a,b){return a.date===b.date?(a.start<b.start?-1:a.start>b.start?1:0):(a.date<b.date?1:-1);});
 }
+function stepsLine(d){var v=state.steps[d];return '<div class="stepsline" data-steps="'+d+'">'+(v!=null?'👣 '+fmtInt(v)+' Schritte':'👣 Schritte eintragen')+'</div>';}
 function renderDiary(){
   var all=state.entries, today=todayStr(), from7=addDays(today,-6);
   var last7=all.filter(function(e){return e.date>=from7&&e.date<=today;});
@@ -282,6 +300,7 @@ function renderDiary(){
     '<div class="stat"><b>'+(avg==null?'–':num1(avg))+'</b><span>Ø Stärke<br>letzte 7 Tage</span></div>';
 
   var list=$('#list');
+  $('#steps-open').textContent='👣 Schritte für einen Tag eintragen';
   if(!all.length){
     list.innerHTML='<div class="empty"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg><p>Noch keine Einträge.<br>Tippe auf <b>Neuer Eintrag</b>, sobald du Kopfschmerzen hast – oder trage sie später nach.</p></div>';
     return;
@@ -293,7 +312,7 @@ function renderDiary(){
       cur=e.date;
       var name=cur===today?'Heute':cur===yest?'Gestern':longDate(cur);
       var mx=Math.max.apply(null,byDate[cur].map(function(x){return x.intensity;}));
-      html+='<div class="day"><h2>'+name+(cur===today||cur===yest?' <span>· '+longDate(cur)+'</span>':'')+'</h2><span>'+byDate[cur].length+'× · max. '+mx+'</span></div>';
+      html+='<div class="day"><h2>'+name+(cur===today||cur===yest?' <span>· '+longDate(cur)+'</span>':'')+'</h2><span>'+byDate[cur].length+'× · max. '+mx+'</span></div>'+stepsLine(cur);
     }
     var d=duration(e), next=e.end&&mins(e.end)<mins(e.start);
     var time=e.start+(e.end?' – '+e.end:'')+' Uhr'+(next?' (+1 Tag)':'');
@@ -308,6 +327,8 @@ function renderDiary(){
 }
 
 $('#list').addEventListener('click',function(ev){
+  var sl=ev.target.closest('[data-steps]');
+  if(sl){openSteps(sl.getAttribute('data-steps'));return;}
   var endBtn=ev.target.closest('[data-end]');
   if(endBtn){
     var e=find(endBtn.getAttribute('data-end'));
@@ -333,6 +354,7 @@ $('#scale').addEventListener('click',function(ev){var b=ev.target.closest('butto
 Array.prototype.forEach.call(document.querySelectorAll('[data-now]'),function(b){
   b.addEventListener('click',function(){$('#'+b.getAttribute('data-now')).value=nowTime();});
 });
+$('#f-date').addEventListener('change',function(){$('#f-steps').value=state.steps[this.value]||'';});
 $('#f-end-clear').addEventListener('click',function(){$('#f-end').value='';});
 
 function openSheet(id){
@@ -344,6 +366,7 @@ function openSheet(id){
   $('#f-end').value=e&&e.end?e.end:'';
   $('#f-med').value=e&&e.med?e.med:'';
   $('#f-note').value=e&&e.note?e.note:'';
+  $('#f-steps').value=state.steps[$('#f-date').value]||'';
   $('#f-delete').hidden=!e;
   setIntensity(e?e.intensity:0);
   $('#sheet').hidden=false;
@@ -362,6 +385,8 @@ $('#f-save').addEventListener('click',function(){
   var data={date:date,start:start,end:end||'',intensity:selectedIntensity,med:$('#f-med').value.trim(),note:$('#f-note').value.trim()};
   if(editingId){var e=find(editingId);if(e)for(var k in data)e[k]=data[k];}
   else{data.id=uid();state.entries.push(data);}
+  var st=parseInt($('#f-steps').value,10);
+  if(st>=0)state.steps[date]=st;else delete state.steps[date];
   persist();closeSheet();renderDiary();toast('Gespeichert');
 });
 $('#f-delete').addEventListener('click',function(){
@@ -370,6 +395,21 @@ $('#f-delete').addEventListener('click',function(){
     state.entries=state.entries.filter(function(e){return e.id!==id;});
     persist();closeSheet();renderDiary();toast('Eintrag gelöscht');
   });
+});
+
+/* ---------- Schritte ---------- */
+function openSteps(d){
+  $('#s-date').value=d||todayStr();$('#s-val').value=state.steps[$('#s-date').value]||'';
+  $('#steps-modal').hidden=false;
+}
+$('#steps-open').addEventListener('click',function(){openSteps(todayStr());});
+$('#s-date').addEventListener('change',function(){$('#s-val').value=state.steps[this.value]||'';});
+$('#s-cancel').addEventListener('click',function(){$('#steps-modal').hidden=true;});
+$('#s-ok').addEventListener('click',function(){
+  var d=$('#s-date').value,v=parseInt($('#s-val').value,10);
+  if(!d){toast('Bitte ein Datum angeben');return;}
+  if(v>=0)state.steps[d]=v;else delete state.steps[d];
+  persist();$('#steps-modal').hidden=true;renderDiary();toast('Schritte gespeichert');
 });
 
 /* ---------- Bericht ---------- */
@@ -430,6 +470,8 @@ function buildReport(range){
   var nMed=inR.filter(function(e){return e.med;}).length;
   var maxByDay={};Object.keys(by).forEach(function(k){maxByDay[k]=Math.max.apply(null,by[k].map(function(e){return e.intensity;}));});
 
+  var stepDays=days.filter(function(x){return state.steps[x]!=null;});
+  var avgSteps=stepDays.length?Math.round(stepDays.reduce(function(a,x){return a+state.steps[x];},0)/stepDays.length):null;
   var name=(state.settings.name||'').trim(),dob=state.settings.dob;
   var h='<style>'+REPORT_CSS+'</style>';
   h+='<h1>Kopfschmerztagebuch</h1><div class="meta"><div>'+
@@ -442,20 +484,21 @@ function buildReport(range){
      '<div class="kpi"><b>'+(avg==null?'–':num1(avg)+' / 10')+'</b><span>Ø Stärke</span></div>'+
      '<div class="kpi"><b>'+(mx==null?'–':mx+' / 10')+'</b><span>Maximale Stärke</span></div>'+
      '<div class="kpi"><b>'+(avgDur==null?'–':fmtDur(Math.round(avgDur)))+'</b><span>Ø Dauer pro Episode</span></div>'+
-     '<div class="kpi"><b>'+nMed+'</b><span>Episoden mit Medikament</span></div></div>';
+     '<div class="kpi"><b>'+nMed+'</b><span>Episoden mit Medikament</span></div>'+
+     '<div class="kpi"><b>'+(avgSteps==null?'–':fmtInt(avgSteps))+'</b><span>Ø Schritte pro Tag</span></div></div>';
   if(days.length>1&&days.length<=190){
     h+='<h2>Verlauf – stärkster Kopfschmerz pro Tag</h2>'+chartSVG(days,maxByDay);
   }
-  h+='<h2>Einzelne Einträge</h2><table><colgroup><col style="width:88px"><col style="width:50px"><col style="width:62px"><col style="width:70px"><col style="width:100px"><col></colgroup><thead><tr><th>Datum</th><th>Beginn</th><th>Ende</th><th>Dauer</th><th>Stärke</th><th>Medikament / Notiz</th></tr></thead>';
+  h+='<h2>Einzelne Einträge</h2><table><colgroup><col style="width:84px"><col style="width:62px"><col style="width:48px"><col style="width:58px"><col style="width:64px"><col style="width:96px"><col></colgroup><thead><tr><th>Datum</th><th>Schritte</th><th>Beginn</th><th>Ende</th><th>Dauer</th><th>Stärke</th><th>Medikament / Notiz</th></tr></thead>';
   days.forEach(function(day){
     var p=parseDate(day),dl=WDS[p.getDay()]+' '+deDate(day).slice(0,6)+String(p.getFullYear()).slice(2);
     var es=by[day];
-    if(!es){h+='<tbody class="rday"><tr class="free"><td class="d">'+dl+'</td><td colspan="5" class="none">kein Kopfschmerz dokumentiert</td></tr></tbody>';return;}
+    if(!es){h+='<tbody class="rday"><tr class="free"><td class="d">'+dl+'</td><td class="c">'+(state.steps[day]!=null?fmtInt(state.steps[day]):'')+'</td><td colspan="5" class="none">kein Kopfschmerz dokumentiert</td></tr></tbody>';return;}
     h+='<tbody class="rday">';
     es.forEach(function(e,i){
       var du=duration(e),next=e.end&&mins(e.end)<mins(e.start);
       var notes=[e.med?'<b>'+esc(e.med)+'</b>':'',e.note?esc(e.note):''].filter(Boolean).join(' · ');
-      h+='<tr>'+'<td class="d">'+(i===0?dl:'')+'</td>'+
+      h+='<tr>'+'<td class="d">'+(i===0?dl:'')+'</td><td class="c">'+(i===0&&state.steps[day]!=null?fmtInt(state.steps[day]):'')+'</td>'+
         '<td class="c">'+e.start+'</td><td class="c">'+(e.end?e.end+(next?' (+1)':''):'offen')+'</td><td class="c">'+(du!=null?fmtDur(du):'–')+'</td>'+
         '<td class="c"><span class="pill" style="background:'+color(e.intensity)+';color:'+fg(e.intensity)+'">'+e.intensity+'</span> '+label(e.intensity)+'</td>'+
         '<td>'+notes+'</td></tr>';
@@ -463,7 +506,7 @@ function buildReport(range){
     h+='</tbody>';
   });
   h+='</table><div class="foot">Stärke-Skala: 1 = sehr leicht … 10 = stärkster vorstellbarer Kopfschmerz (leicht 1–3, mittel 4–6, stark 7–8, sehr stark 9–10). '+
-     'Tage ohne Eintrag gelten als kopfschmerzfrei. „(+1)“ = Ende am Folgetag. Erstellt mit der App „Kopfschmerztagebuch“.</div>';
+     'Tage ohne Eintrag gelten als kopfschmerzfrei. Schritte = Tagessumme (manuell eingetragen). „(+1)“ = Ende am Folgetag. Erstellt mit der App „Kopfschmerztagebuch“.</div>';
   return h;
 }
 
@@ -512,7 +555,7 @@ $('#btn-print').addEventListener('click',function(){
 
 /* ---------- Sicherung ---------- */
 $('#btn-backup').addEventListener('click',function(){
-  var txt=JSON.stringify({v:1,entries:state.entries,settings:state.settings});
+  var txt=JSON.stringify({v:2,entries:state.entries,settings:state.settings,steps:state.steps});
   if(NATIVE)Android.shareText('Kopfschmerztagebuch Sicherung '+deDate(todayStr()),txt);
   else toast('Nur in der App verfügbar');
 });
@@ -525,6 +568,7 @@ $('#btn-restore').addEventListener('click',function(){
     if(!e||!e.id||!/^\d{4}-\d\d-\d\d$/.test(e.date)||!/^\d\d:\d\d$/.test(e.start)||!(e.intensity>=1&&e.intensity<=10))return;
     if(!find(e.id)){state.entries.push({id:String(e.id),date:e.date,start:e.start,end:/^\d\d:\d\d$/.test(e.end||'')?e.end:'',intensity:+e.intensity,med:String(e.med||''),note:String(e.note||'')});added++;}
   });
+  if(o.steps&&typeof o.steps==='object')Object.keys(o.steps).forEach(function(k){if(/^\d{4}-\d\d-\d\d$/.test(k)&&state.steps[k]==null&&o.steps[k]>=0)state.steps[k]=+o.steps[k];});
   persist();renderDiary();$('#restore-text').value='';toast(added+' Einträge wiederhergestellt');
 });
 
@@ -546,6 +590,7 @@ $('#tab-diary').addEventListener('click',function(){showTab('diary');});
 $('#tab-export').addEventListener('click',function(){showTab('export');});
 
 window.handleBack=function(){
+  if(!$('#steps-modal').hidden){$('#steps-modal').hidden=true;return true;}
   if(!$('#modal').hidden){$('#modal').hidden=true;return true;}
   if(!$('#sheet').hidden){closeSheet();return true;}
   if(currentTab!=='diary'){showTab('diary');return true;}
